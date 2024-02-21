@@ -19,7 +19,7 @@ Work1Params Work1::params;
 
 Work1::Work1() = default;
 
-
+//12
 
 auto Work1::doWork() -> int
 {
