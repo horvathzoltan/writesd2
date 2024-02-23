@@ -23,6 +23,12 @@ Work1::Work1() = default;
 
 auto Work1::doWork() -> int
 {
+    // auto a1 = QDir::currentPath();
+    // zInfo("currentPath:"+a1)
+
+    //     auto a2 = qApp->applicationDirPath();
+    // zInfo("applicationDirPath:"+a2)
+
     bool isDcfldd = check_dcfldd();
     if(!isDcfldd){
         return NO_DCFLDD;
@@ -48,7 +54,7 @@ auto Work1::doWork() -> int
     //if(params.ofile.isEmpty()) return NOOUTFILE;
     //if(!params.ofile.endsWith(".img")) params.ofile+=".img";
     QString working_path = params.workingpath;
-    if(working_path.isEmpty()) working_path = qApp->applicationDirPath();
+    if(working_path.isEmpty()) working_path = QDir::currentPath();//qApp->applicationDirPath();
 
     QList<UsbDriveModel> usbDrives_all = GetUsbDrives();
     if(usbDrives_all.isEmpty()) return ISEMPTY;
@@ -96,7 +102,7 @@ auto Work1::doWork() -> int
         auto most_recent = MostRecent(working_path);
 
         if(most_recent.isFile())zInfo("most recent:"+most_recent.fileName());
-        params.ofile = GetFileName("Add output file name.");
+        params.ofile = GetFileName("Add image file name.");
     }
 
     if(params.ofile.isEmpty()) return NO_INPUTFILE;
@@ -554,10 +560,9 @@ bool Work1::check_command(const QString& cmd1 ){
 
     //    auto m2 = ProcessHelper::Model::ParseAsSudo(cmd, params.passwd);
     //    auto out = ProcessHelper::Execute3(m2);//2
-    auto out = ProcessHelper::ShellExecuteSudo(cmd);
-    if(out.exitCode)
-        return false;
+    auto out = ProcessHelper::ShellExecute(cmd);
 
+    if(out.exitCode) return false;
     return true;
 }
 
