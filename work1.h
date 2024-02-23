@@ -47,7 +47,7 @@ public:
         CHECKSUM_ERROR,
         NO_PASSWD,
         NO_USBDRIVE,
-        DRIVE_SIZE_ERROR
+        DRIVE_SIZE_ERROR, NO_DCFLDD
     };
 public:
     Work1();
@@ -79,6 +79,8 @@ public:
 
     //static ProcessHelper::Output Execute2(const QString& cmd);
     //static com::helper::ProcessHelper::Output Execute2Pipe(const QString &cmd1, const QString &cmd2);
+    static bool check_dcfldd();
+    static bool check_command(const QString& cmd1);
 private:
     static QList<UsbDriveModel> SelectUsbDrives(const QList<UsbDriveModel>& drives);
 };

@@ -23,6 +23,11 @@ Work1::Work1() = default;
 
 auto Work1::doWork() -> int
 {
+    bool isDcfldd = check_dcfldd();
+    if(!isDcfldd){
+        return NO_DCFLDD;
+    }
+
     if(params.passwd.isEmpty()){
         params.passwd = GetFileName("Add sudo password.");
     }
@@ -535,6 +540,25 @@ int Work1::dd(const QString& src, const QString& dst, int bs, QString *mnt)
     if(out.exitCode) return out.exitCode;
     if(out.stdOut.isEmpty()) return out.exitCode;
     return 0;
+}
+
+bool Work1::check_dcfldd(){
+    return check_command("dcfldd");
+}
+
+// https://www.ibm.com/docs/en/aix/7.2?topic=c-command-command
+bool Work1::check_command(const QString& cmd1 ){
+    auto cmd = QStringLiteral("command -v %1").arg(cmd1);
+
+    zInfo("cmd:"+cmd);
+
+    //    auto m2 = ProcessHelper::Model::ParseAsSudo(cmd, params.passwd);
+    //    auto out = ProcessHelper::Execute3(m2);//2
+    auto out = ProcessHelper::ShellExecuteSudo(cmd);
+    if(out.exitCode)
+        return false;
+
+    return true;
 }
 
 //dd if=/dev/sdb | tee >(dd of=/dev/sdc) | tee >(dd of=/dev/sdj) | dd of=/dev/sdh
