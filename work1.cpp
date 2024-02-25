@@ -88,7 +88,10 @@ auto Work1::doWork() -> int
     QList<RecModel> lastrecs = GetLastRecords(usbdrives); // megtudjuk a rekord méretet, ez kell a dd-hez
 
     bool isValidRecords = CheckRecords_Units(lastrecs);
-    if(!isValidRecords) return NO_LASTREC;
+    if(!isValidRecords) {
+        zInfo("partx error");
+    //    return NO_LASTREC;
+    }
 
     for(auto&usbdrive:usbdrives){
         QStringList mountedparts = MountedParts(usbdrive.devicePath);
