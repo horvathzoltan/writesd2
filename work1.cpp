@@ -178,15 +178,17 @@ auto Work1::doWork() -> int
     for(auto&s:shas){
         QString msg;
         QString sha0 = s.sha;
+        UsbDriveModel usb = GetUsbDrive(usbdrives, s.dev);
+        auto usbtxt = usb.toString2();
         if(sha0.isEmpty()) {
-            msg = s.dev+" NO_SHA";
+            msg = usbtxt+" NO_SHA";
         }else{
             bool sha_ok = sha0==sha_img;
 
             if(sha_ok){
-                msg = s.dev+" OK";
+                msg = usbtxt+" OK";
             } else{
-                msg = s.dev+": "+sha0+" FAILED";
+                msg = usbtxt+": "+sha0+" FAILED";
                 faileds++;
             }
         }
@@ -201,6 +203,8 @@ auto Work1::doWork() -> int
 
     return OK;
 }
+
+
 
 QString Work1::LoadSha(const QString& fn){
     //QString fn2 = TextFileHelper::GetFileName(fn);
@@ -544,6 +548,14 @@ QList<UsbDriveModel> Work1::SelectUsbDrives(const QList<UsbDriveModel> &usbdrive
     return e;
 }
 
+UsbDriveModel Work1::GetUsbDrive(const QList<UsbDriveModel>& usbdrives, const QString & dev)
+{
+    for(auto&device:usbdrives){
+        if(device.devicePath==dev) return device;
+    }
+    return {};
+}
+
 bool Work1::ConfirmYes()
 {
     zInfo("Say 'yes' to continue or any other to quit.")
@@ -669,17 +681,28 @@ QString UsbDriveModel::GetLastUsbTag() const
 
 QString UsbDriveModel::toString() const
 {
-    QString n =  devicePath;
+    //QString n =  devicePath;
 
-    QString usbn = GetLastUsbTag();
-    if(usbn.isEmpty()) usbn = usbPath;
+    //QString usbn = GetLastUsbTag();
+    //if(usbn.isEmpty()) usbn = usbPath;
 
+    QString usbtxt = toString2();
     QString labels="";
     bool hasParts = !partLabels.isEmpty();
     if(hasParts){
         labels = partLabels.join(',');
     }
-    return n+": "+usbn+": "+labels;
+    return usbtxt+": "+labels;
+}
+
+QString UsbDriveModel::toString2() const
+{
+    QString n =  devicePath;
+
+    QString usbn = GetLastUsbTag();
+    if(usbn.isEmpty()) usbn = usbPath;
+
+    return n+": "+usbn;
 }
 
 bool UsbDriveModel::isValid()

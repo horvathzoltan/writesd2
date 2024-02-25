@@ -14,6 +14,7 @@ struct UsbDriveModel{
     QString toString() const;
     bool isValid();
     QString GetLastUsbTag() const;
+    QString toString2() const;
 };
 
 struct RecModel{
@@ -104,6 +105,7 @@ public:
     //static com::helper::ProcessHelper::Output Execute2Pipe(const QString &cmd1, const QString &cmd2);
 private:
     static QList<UsbDriveModel> SelectUsbDrives(const QList<UsbDriveModel>& drives, const QString& usbPath);
+    static UsbDriveModel GetUsbDrive(const QList<UsbDriveModel>&, const QString&);
 };
 
 #endif // WORK1_H
