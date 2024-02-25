@@ -5,12 +5,12 @@
 CoreAppWorker::CoreAppWorker() = default;
 
 int (*CoreAppWorker::workerFn)();
-QCommandLineParser* CoreAppWorker::parser;
+//QCommandLineParser* CoreAppWorker::parser;
 
-CoreAppWorker::CoreAppWorker(int (*fn)(), QCoreApplication *app, QCommandLineParser *p)
+CoreAppWorker::CoreAppWorker(int (*fn)(), QCoreApplication *app)//, QCommandLineParser *p)
 {
     workerFn = fn;
-    parser = p;
+    //parser = p;
     QObject::connect(this, &CoreAppWorker::finished, app, &QCoreApplication::quit, Qt::QueuedConnection);
     //qDebug() << "new AppWorker";
 }

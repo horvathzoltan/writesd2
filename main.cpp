@@ -1,30 +1,11 @@
 #include <QCoreApplication>
 #include "helpers/logger.h"
 #include "helpers/signalhelper.h"
-#include "helpers/commandlineparserhelper.h"
+//#include "helpers/commandlineparserhelper.h"
 #include "helpers/coreappworker.h"
 
 #include "work1.h"
-#include "typekey.h"
 #include "helpers/stringify.h"
-
-struct ParserKeyValueDesc{
-    QString key;
-    QString value;
-    QString desc;
-};
-
-void ParserInit(QCommandLineParser *p, QCoreApplication *a, const QString& desc, const QList<ParserKeyValueDesc>& opts)
-{
-    p->setApplicationDescription(desc);
-    p->addHelpOption();
-    p->addVersionOption();
-
-    //const QString OPTION_OUT = QStringLiteral("output");
-    for(auto&i:opts) CommandLineParserHelper::addOption(p, i.key, i.desc);
-
-    p->process(*a);
-}
 
 auto main(int argc, char *argv[]) -> int
 {
@@ -33,7 +14,7 @@ auto main(int argc, char *argv[]) -> int
 #else
     auto target=QStringLiteral("ApplicationNameString");
 #endif
-    QCoreApplication a(argc, argv);
+    QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(target);
     QCoreApplication::setApplicationVersion("1");
     QCoreApplication::setOrganizationName("LogControl Kft.");
@@ -47,22 +28,21 @@ auto main(int argc, char *argv[]) -> int
     zInfo(QStringLiteral("started ")+target+" as "+user);
 
     QCommandLineParser parser;
+    QList<QCommandLineOption> options{
+      {{"i",QStringLiteral("input")},QStringLiteral("image file name"),"input"},
+      {{"u",QStringLiteral("usbpath")},QStringLiteral("path of usb"),"usbpath"},
+      {{"p",QStringLiteral("path")},QStringLiteral("working path"),"path"},
+      {{"s",QStringLiteral("passwd")},QStringLiteral("secret"),"passwd"},
+      {{"f",QStringLiteral("force")},QStringLiteral("no ask")},
+      };
+    parser.addHelpOption();
+    parser.addVersionOption();
+    parser.addOptions(options);
+    parser.process(app);
 
-    ParserInit(&parser, &a, QStringLiteral("writes a sd card"),
-                   {
-                       {
-                           zkey(Work1Params::ofile),
-                           QStringLiteral("output"),
-                           QStringLiteral("file as output")
-                       }
-                   });
-   const QString OPTION_PATH = QStringLiteral("path");
+    Work1::_params.Parse(&parser);
 
-    CommandLineParserHelper::addOption(&parser, OPTION_PATH, QStringLiteral("output folder"));
-
-    Work1::params.workingpath = parser.value(OPTION_PATH);
-
-    CoreAppWorker c(Work1::doWork, &a, &parser);
+    CoreAppWorker c(Work1::doWork, &app);//, &parser);
     volatile auto errcode = c.run();
 
     switch(errcode)

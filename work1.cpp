@@ -15,21 +15,21 @@
 #include <QDate>
 #include <QDirIterator>
 
-Work1Params Work1::params;
+Work1::Params Work1::_params;
 
 Work1::Work1() = default;
 
-//12
+// ./writesd2 -p /media/pi/butyok2/clone/ -i img56 -s Aladar123 -f -u 1-1.1
 
 auto Work1::doWork() -> int
 {
-    if(params.passwd.isEmpty()){
-        params.passwd = GetFileName("Add sudo password.");
+    if(_params.passwd.isEmpty()){
+        _params.passwd = GetFileName("Add sudo password.");
     }
 
-    if(params.passwd.isEmpty()) return NO_PASSWD;
+    if(_params.passwd.isEmpty()) return NO_PASSWD;
 
-    ProcessHelper::SetPassword(params.passwd);
+    ProcessHelper::SetPassword(_params.passwd);
 
     // TODO 1. megtudni a kártyát
     // lsblk -dro name,path,type,tran,rm,vendor,model,phy-sec,mountpoint
@@ -42,8 +42,8 @@ auto Work1::doWork() -> int
     // sudo dd of=/dev/sdm bs=512 if=/media/zoli/mentes/QT_raspi_anti/raspicam3.img status=progress oflag=sync
     //if(params.ofile.isEmpty()) return NOOUTFILE;
     //if(!params.ofile.endsWith(".img")) params.ofile+=".img";
-    QString working_path = params.workingpath;
-    if(working_path.isEmpty()) working_path = qApp->applicationDirPath();
+    QString working_path = _params.path;
+    if(working_path.isEmpty()) working_path = QDir::currentPath();
 
     QList<UsbDriveModel> usbDrives_all = GetUsbDrives();
     if(usbDrives_all.isEmpty()) return ISEMPTY;
@@ -53,7 +53,25 @@ auto Work1::doWork() -> int
     QList<UsbDriveModel> usbdrives;
 
     if(usbDrives_all.count()>0){
-        usbdrives = SelectUsbDrives(usbDrives_all);
+        if(_params.usbPath.isEmpty()){
+            int j = 1;
+            for(auto&i:usbdrives){
+                QString msg = QString::number(j++)+": "+i.toString();
+                zInfo(msg)
+            }
+            //j--;
+            zInfo("select drive with usb path")
+
+            QTextStream in(stdin);
+            auto intxt = in.readLine();
+            bool isok = !intxt.isEmpty();
+            //auto ix = intxt.toInt(&isok);
+            if(!isok) return NO_USBDRIVE;
+            if(!intxt.isEmpty()) return NO_USBDRIVE;
+            _params.usbPath = intxt;
+        }
+
+        usbdrives = SelectUsbDrives(usbDrives_all, _params.usbPath);
     } else{
         usbdrives=QList<UsbDriveModel>();
     }
@@ -85,20 +103,24 @@ auto Work1::doWork() -> int
 
     bool confirmed = false;
 
-    if(params.ofile.isEmpty())
+    if(_params.ifile.isEmpty())
     {
         confirmed = true;
         auto most_recent = MostRecent(working_path);
 
         if(most_recent.isFile())zInfo("most recent:"+most_recent.fileName());
-        params.ofile = GetFileName("Add output file name.");
+        _params.ifile = GetFileName("Add input file name.");
     }
 
-    if(params.ofile.isEmpty()) return NO_INPUTFILE;
-    if(!params.ofile.endsWith(".img")) params.ofile+=".img";
-    QFileInfo fi(params.ofile);
+    if(_params.ifile.isEmpty()) return NO_INPUTFILE;
+    if(!_params.ifile.endsWith(".img")) _params.ifile+=".img";
+    QFileInfo fi(QDir(working_path).filePath(_params.ifile));
     if(!fi.exists()) return FILENOTEXIST;
+    if(_params.force){
+        confirmed = true;
+    }
     if(!confirmed) confirmed = ConfirmYes();
+    if(!confirmed) return NOT_CONFIRMED;
 
     qint64 b = fi.size();
     auto b_txt = BytesToString((double)b);
@@ -114,13 +136,11 @@ auto Work1::doWork() -> int
         return DRIVE_SIZE_ERROR;
     }
 
-    auto fn = QDir(working_path).filePath(params.ofile);
-    if(!confirmed) return NOT_CONFIRMED;
-
+    auto fn = QDir(working_path).filePath(_params.ifile);
     auto sha_tmp_fn = QDir(working_path).filePath("temp.sha256");
 
     // ha van már temp és, töröljük
-    TextFileHelper::Delete(sha_tmp_fn);
+    //TextFileHelper::Delete(sha_tmp_fn);
 
     int units = lastrecs[0].units;
 
@@ -137,24 +157,47 @@ auto Work1::doWork() -> int
     qint64 lastrec_dest= b/units;
 
     //********************
-    //sha256sumDevice(usbdrive.devicePath, r, lastrec_dest, sha_tmp_fn);
-    QString sha_tmp = getSha(sha_tmp_fn);
-    if(sha_tmp.isEmpty()) return NO_CHECK0;
+    QList<MultiSha> shas = sha256sumDevices(devpaths, units, lastrec_dest, sha_tmp_fn);
+    //QString sha_tmp = LoadSha(sha_tmp_fn);
+    //if(sha_tmp.isEmpty()) return NO_CHECK0;
 
     // a forrásfájl sha-ja
-    QString sha_img = getSha(fn+".sha256");
+    QString sha_img = LoadSha(fn+".sha256");
     if(sha_img.isEmpty()) return NO_CHECK1;
-
-    zInfo(QStringLiteral("sha_tmp: ")+sha_tmp)
     zInfo(QStringLiteral("sha_img: ")+sha_img)
-    if(sha_tmp!=sha_img) return CHECKSUM_ERROR;
+
+    if(shas.isEmpty()) return NO_CHECK0;
+    int faileds = 0;
+    for(auto&s:shas){
+        QString msg;
+        QString sha0 = s.sha;
+        if(sha0.isEmpty()) {
+            msg = s.dev+" NO_SHA";
+        }else{
+            bool sha_ok = sha0==sha_img;
+
+            if(sha_ok){
+                msg = s.dev+" OK";
+            } else{
+                msg = s.dev+": "+sha0+" FAILED";
+                faileds++;
+            }
+        }
+        zInfo("check:"+msg)
+    }
+
+    for(auto&s:shas){
+        QFile::remove(s.shaFileName);
+    }
+
+    if(faileds>0) return CHECKSUM_ERROR;
 
     return OK;
 }
 
-QString Work1::getSha(const QString& fn){
-    QString fn2 = TextFileHelper::GetFileName(fn);
-    zInfo("sha256sum from: "+fn2);
+QString Work1::LoadSha(const QString& fn){
+    //QString fn2 = TextFileHelper::GetFileName(fn);
+    zInfo("sha256sum from: "+fn);
     QString txt;
     bool ok = TextFileHelper::Load(fn, &txt);
     if(!ok) return {};
@@ -172,26 +215,58 @@ sudo dd bs=512 count=22229808 if=/dev/sdj | sha256sum > lastcopy.sha256
 */
 // dd if=image.bin | tee >(dd of=/dev/sdc) | dd of=/dev/sdh
 
-int Work1::sha256sumDevice(const QString& fn, int r, qint64 b, const QString& sha_fn)
+QList<Work1::MultiSha> Work1::sha256sumDevices(const QStringList& devices, int r, qint64 b, const QString& sha_fn)
 {
-    auto sha_fn2 = TextFileHelper::GetFileName(sha_fn);
-    zInfo("sha256sum on dev: "+fn+" -> "+sha_fn2);
-    //auto cmd1 = QStringLiteral("dd bs=%2 count=%3 if=%1 status=progress ").arg(fn).arg(r).arg(b);
+    //auto sha_fn2 = TextFileHelper::GetFileName(sha_fn);
 
-    //auto m = ProcessHelper::Model::ParseAsSudo(cmd1, params.passwd);
-    //m[1].showStdErr=false;
-    //m.append({.cmd="sha256sum", .args = {}, .timeout=-1, .showStdErr = false });
+    QList<MultiSha> shas;
+    int devicesL = devices.count();
 
-    //auto out = ProcessHelper::Execute3(m);
+    for(int i = 0;i<devicesL;i++){
+        const QString& device = devices[i];
+        MultiSha s;
 
-    auto cmd = QStringLiteral("dd bs=%2 count=%3 if=%1 status=progress | sha256sum").arg(fn).arg(r).arg(b);
-    auto out = ProcessHelper::ShellExecuteSudo(cmd, -1);
+        s.shaFileName = sha_fn + "_" + QString::number(i);
 
-    //if(out.exitCode) return out.exitCode;
-    if(out.stdOut.isEmpty()) return out.exitCode;
-    TextFileHelper::Save(out.stdOut, sha_fn);
-    zInfo("ok");
-    return 0;
+        s.command =
+            QStringLiteral(
+                        "dd bs=%2 count=%3 if=%1 status=progress | sha256sum > %4")
+                        .arg(device)
+                        .arg(r)
+                        .arg(b)
+                        .arg(s.shaFileName);
+        s.dev = device;
+
+        shas.append(s);
+    }
+
+    QString parallel_command;
+    for(int i=0;i<devicesL;i++){
+        const MultiSha& s = shas[i];
+        if(!parallel_command.isEmpty()) parallel_command+=" ";
+        //parallel_command+="'"+a+"'";
+        parallel_command+=s.command+" & ";
+    }
+
+    parallel_command+=" wait";
+
+    zInfo("sha256sum on devs");//: "+fn+" -> "+sha_fn2);
+    zInfo("parallel_command:"+parallel_command)
+
+    ProcessHelper::setVerbose(true);
+    auto out = ProcessHelper::ShellExecuteSudo(parallel_command, -1);
+    ProcessHelper::setVerbose(false);
+
+    if(out.exitCode) return {};
+    //if(out.stdOut.isEmpty()) return {};
+
+    for(auto&sha:shas){
+        auto sha0 = LoadSha(sha.shaFileName);
+        //sha.setSha(sha0);
+        sha.sha = sha0;
+    }
+
+    return shas;
 }
 
 QString Work1::BytesToString(double b)
@@ -268,10 +343,10 @@ NR START END SECTORS SIZE NAME UUID
             lastrec = k;
             if(units!=nullptr)
             {
-                auto sectors = j[3].toULong();
-                auto size = j[4].toULong();
-                int r = size/sectors;
-                *units =r;
+                quint64 sectors = j[3].toULongLong();
+                quint64 size = j[4].toULongLong();
+                int r = size / sectors;
+                *units = r;
             }
         }
 
@@ -317,7 +392,7 @@ bool Work1::CheckRecords_Units(const QList<RecModel>& records){
     return true;
 }
 
-QList<UsbDriveModel> Work1::GetSmallUsbDrive(const QList<UsbDriveModel>& usbdrives, long size){
+QList<UsbDriveModel> Work1::GetSmallUsbDrive(const QList<UsbDriveModel>& usbdrives, quint64 size){
     QList<UsbDriveModel> e;
     for(auto&a:usbdrives){
         if(a.size<size) e.append(a);
@@ -363,7 +438,7 @@ QList<UsbDriveModel> Work1::GetUsbDrives()
         bool isMmc = j[0].startsWith("mmc");
 
         bool ok;
-        long size = j[8].toLong(&ok);
+        quint64 size = j[8].toULongLong(&ok);
         bool hasCard = ok && size>0;
 
         if(isRemovableDisk && (isUsb || isMmc) && hasCard){
@@ -429,37 +504,33 @@ QStringList Work1::GetPartLabels(const QString &dev)
 
 
 
-UsbDriveModel Work1::SelectUsbDrive(const QList<UsbDriveModel> &usbdrives)
-{
-    int j = 1;
-    for(auto&i:usbdrives) zInfo(QString::number(j++)+": "+i.toString());j--;
-    zInfo("select 1-"+QString::number(j))
+// UsbDriveModel Work1::SelectUsbDrive(const QList<UsbDriveModel> &usbdrives)
+// {
+//     int j = 1;
+//     for(auto&i:usbdrives) zInfo(QString::number(j++)+": "+i.toString());j--;
+//     zInfo("select 1-"+QString::number(j))
 
-        QTextStream in(stdin);
-    auto intxt = in.readLine();
-    bool isok;
-    auto ix = intxt.toInt(&isok);
-    if(!isok) return UsbDriveModel();
-    if(ix<1||ix>j) return UsbDriveModel();
-    return usbdrives[ix-1];
-}
-
-QList<UsbDriveModel> Work1::SelectUsbDrives(const QList<UsbDriveModel> &usbdrives)
-{
-    int j = 1;
-    for(auto&i:usbdrives) zInfo(QString::number(j++)+": "+i.toString());j--;
-    zInfo("select drive with usb path")
-
+//         QTextStream in(stdin);
+//     auto intxt = in.readLine();
+//     bool isok;
+//     auto ix = intxt.toInt(&isok);
+//     if(!isok) return UsbDriveModel();
+//     if(ix<1||ix>j) return UsbDriveModel();
+//     return usbdrives[ix-1];
+// }
+/*
     QTextStream in(stdin);
     auto intxt = in.readLine();
     bool isok = !intxt.isEmpty();
     //auto ix = intxt.toInt(&isok);
     if(!isok) return QList<UsbDriveModel>();
-
+*/
+QList<UsbDriveModel> Work1::SelectUsbDrives(const QList<UsbDriveModel> &usbdrives, const QString& usbPath0)
+{
     QList<UsbDriveModel> e;
     for(auto&device:usbdrives){
         QString usbPath = device.GetLastUsbTag();
-        if(usbPath.startsWith(intxt)){
+        if(usbPath.startsWith(usbPath0)){
             e.append(device);
         }
     }
