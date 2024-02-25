@@ -63,6 +63,8 @@ auto main(int argc, char *argv[]) -> int
         case Work1::NO_USBDRIVE: zInfo("no usb device to use"); break;
         case Work1::DRIVE_SIZE_ERROR: zInfo("drive size error"); break;
 
+        case Work1::NO_DCFLDD: zInfo("no dcfldd"); break;
+
         default: zInfo("an error occured: "+QString::number(errcode)); break;
     }
 

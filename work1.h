@@ -39,7 +39,8 @@ public:
         CHECKSUM_ERROR,
         NO_PASSWD,
         NO_USBDRIVE,
-        DRIVE_SIZE_ERROR
+        DRIVE_SIZE_ERROR,
+        NO_DCFLDD
     };
 public:
     struct Params{

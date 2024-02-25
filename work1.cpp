@@ -23,6 +23,10 @@ Work1::Work1() = default;
 
 auto Work1::doWork() -> int
 {
+    auto o = ProcessHelper::ShellExecute("command -v dcfldd");
+
+    if(o.exitCode) return NO_DCFLDD;
+
     if(_params.passwd.isEmpty()){
         _params.passwd = GetFileName("Add sudo password.");
     }
