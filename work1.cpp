@@ -59,7 +59,7 @@ auto Work1::doWork() -> int
     if(usbDrives_all.count()>0){
         if(_params.usbPath.isEmpty()){
             int j = 1;
-            for(auto&i:usbdrives){
+            for(auto&i:usbDrives_all){
                 QString msg = QString::number(j++)+": "+i.toString();
                 zInfo(msg)
             }
@@ -71,7 +71,7 @@ auto Work1::doWork() -> int
             bool isok = !intxt.isEmpty();
             //auto ix = intxt.toInt(&isok);
             if(!isok) return NO_USBDRIVE;
-            if(!intxt.isEmpty()) return NO_USBDRIVE;
+            if(intxt.isEmpty()) return NO_USBDRIVE;
             _params.usbPath = intxt;
         }
 
@@ -577,7 +577,7 @@ QStringList Work1::MountedParts(const QString &src)
     auto cmd = QStringLiteral("mount -l");
     //auto m2 = ProcessHelper::Model::ParseAsSudo(cmd, params.passwd);
     //auto out = ProcessHelper::Execute3(m2);
-    auto out = ProcessHelper::ShellExecuteSudo(cmd);
+    auto out = ProcessHelper::ShellExecute(cmd);
 
     if(out.exitCode) return e;
     if(out.stdOut.isEmpty()) return e;
