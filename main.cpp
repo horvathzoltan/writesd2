@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include "helpers/userhelper.h"
 #include "helpers/logger.h"
 #include "helpers/signalhelper.h"
 #include "helpers/commandlineparserhelper.h"
@@ -43,8 +44,9 @@ auto main(int argc, char *argv[]) -> int
     SignalHelper::setShutDownSignal(SignalHelper::SIGTERM_); // shut down on killall
     Logger::Init(Logger::ErrLevel::INFO, Logger::DbgLevel::TRACE, true, true);
 
-    QString user = qgetenv("USER");
-    zInfo(QStringLiteral("started ")+target+" as "+user);
+    QString user = UserHelper::GetUser();
+    QString startmsg = QStringLiteral("started ")+target+" as "+(!user.isEmpty()?user:"anonymous");
+    zInfo(startmsg);
 
     QCommandLineParser parser;
 

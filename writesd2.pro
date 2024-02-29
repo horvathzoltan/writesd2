@@ -67,6 +67,7 @@ SOURCES += \
         helpers/processhelper.cpp \
         helpers/signalhelper.cpp \
         helpers/textfilehelper.cpp \
+        helpers/userhelper.cpp \
         main.cpp \
         work1.cpp
 
@@ -79,6 +80,7 @@ HEADERS += \
     helpers/signalhelper.h \
     helpers/stringify.h \
     helpers/textfilehelper.h \
+    helpers/userhelper.h \
     typekey.h \
     work1.h
 
